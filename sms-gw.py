@@ -96,6 +96,7 @@ class SmsGw(object):
                     `sms_outbox` 
                   WHERE 
                     ts <= NOW()
+                    AND expires >= NOW()
                   ORDER BY 
                     ts ASC
                   """
@@ -123,6 +124,7 @@ class SmsGw(object):
                     if result['recipient'][0:2] == "00":
                       result['recipient'] = "+" + result['recipient'][2:]
                     
+                    print("got outgoing msg (" + str(result['id']) + ")")
                     logmsg("got outgoing msg (" + str(result['id']) + "): ")
                     logmsg("  rcpn: " + result['recipient'].encode('utf-8'))
                     logmsg("  text: " + result['message'].encode('utf-8'))
@@ -135,13 +137,14 @@ class SmsGw(object):
                           sms_sent
                         SET
                           ts = %s,
+                          expires = %s,
                           recipient = %s,
                           message = %s,
                           ts_processed = NOW(),
                           status = 0,
                           error = ''
                         """
-                      cursor.execute(sqlstr, (result['ts'], result['recipient'], result['message'].encode('utf-8')))
+                      cursor.execute(sqlstr, (result['ts'], result['expires'], result['recipient'], result['message'].encode('utf-8')))
                       connection.commit()
 
                       sqlstr = """DELETE FROM
@@ -164,13 +167,14 @@ class SmsGw(object):
                         sms_sent
                       SET
                         ts = %s,
+                        expires = %s,
                         recipient = %s,
                         message = %s,
                         ts_processed = NOW(),
                         status = 2,
                         error = 'retries exceeded'
                       """
-                    cursor.execute(sqlstr, (result['ts'], result['recipient'], result['message'].encode('utf-8')))
+                    cursor.execute(sqlstr, (result['ts'], result['expires'], result['recipient'], result['message'].encode('utf-8')))
                     connection.commit()
 
                     sqlstr = """DELETE FROM
